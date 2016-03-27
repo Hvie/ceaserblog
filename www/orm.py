@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 
-import asyncio,logging
+import asyncio, logging
 import aiomysql
+
 
 def log(sql, args=()):
     logging.info('SQL: %s' % sql)
 
 
-
 @asyncio.coroutine
-def create_pool(loop,**kw):
+def create_pool(loop, **kw):
     logging.info('create database connection pool...')
     global __pool
     __pool = yield from aiomysql.create_pool(
-        host=kw.get('host',' localhost'),
+        host=kw.get('host', ' localhost'),
         port=kw.get('port', 3306),
         user=kw['user'],
         password=kw['password'],
@@ -25,13 +25,14 @@ def create_pool(loop,**kw):
         loop=loop
     )
 
+
 @asyncio.coroutine
 def select(sql, args, size=None):
-    log(sql,args)
+    log(sql, args)
     global __pool
     with (yield from __pool) as conn:
         cur = yield from conn.cursor(aiomysql.DictCursor)
-        yield from cur.execute(sql.replace('?','%s'),args or ())
+        yield from cur.execute(sql.replace('?', '%s'), args or ())
         if size:
             rs = yield from cur.fetchmany(size)
         else:
@@ -39,6 +40,7 @@ def select(sql, args, size=None):
         yield from cur.close()
         logging.info('rows returned: %s' % len(rs))
         return rs
+
 
 @asyncio.coroutine
 def execute(sql, args):
@@ -53,6 +55,7 @@ def execute(sql, args):
             raise
         return affected
 
+
 def create_args_string(num):
     L = []
     for n in range(num):
@@ -60,11 +63,7 @@ def create_args_string(num):
     return ', '.join(L)
 
 
-
-
-
 class Field(object):
-
     def __init__(self, name, column_type, primary_key, default):
         self.name = name
         self.column_type = column_type
@@ -74,35 +73,35 @@ class Field(object):
     def __str__(self):
         return '<%s, %s: %s>' % (self.__class__.__name__, self.column_type, self.name)
 
-class StringField(Field):
 
+class StringField(Field):
     def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
-        super().__init__(name,ddl,primary_key,default)
+        super().__init__(name, ddl, primary_key, default)
+
 
 class BooleanField(Field):
-
     def __init__(self, name=None, default=False):
         super().__init__(name, 'boolean', False, default)
 
-class IntegerField(Field):
 
+class IntegerField(Field):
     def __init__(self, name=None, primary_key=False, default=0):
         super().__init__(name, 'bigint', primary_key, default)
 
-class FloatField(Field):
 
+class FloatField(Field):
     def __init__(self, name=None, primary_key=False, default=0.0):
         super().__init__(name, 'real', primary_key, default)
 
-class TextField(Field):
 
+class TextField(Field):
     def __init__(self, name=None, default=None):
         super().__init__(name, 'text', False, default)
 
-class ModelMetaclass(type):
 
+class ModelMetaclass(type):
     def __new__(cls, name, bases, attrs):
-        if name=='Model':
+        if name == 'Model':
             return type.__new__(cls, name, bases, attrs)
 
         tableName = attrs.get('__table__', None) or name
@@ -113,7 +112,7 @@ class ModelMetaclass(type):
         primaryKey = None
         for k, v in attrs.items():
             if isinstance(v, Field):
-                logging.info('found mappings: %s ==> %s' % (k,v))
+                logging.info('found mappings: %s ==> %s' % (k, v))
                 mappings[k] = v
                 if v.primary_key:
                     raise RuntimeError('Duplicate primary key for field: %s' % k)
@@ -133,15 +132,17 @@ class ModelMetaclass(type):
         attrs['__primary_key__'] = primaryKey
         attrs['__fiels__'] = fields
         attrs['__select__'] = 'select `%s`, %s from `%s`' % (primaryKey, ','.join(escaped_fields), tableName)
-        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values(%s)' % (tableName, ','.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields)+1))
-        attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
-        attrs['__delete__'] = 'delete from `%s` where `%s`=?' (tableName, primaryKey)
+        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values(%s)' % (
+            tableName, ','.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
+        attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (
+            tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
+        attrs['__delete__'] = 'delete from `%s` where `%s`=?'(tableName, primaryKey)
         return type.__new__(cls, name, bases, attrs)
 
 
 class Model(dict, metaclass=ModelMetaclass):
-    def __init__(self,**kw):
-        super(Model,self).__init__(**kw)
+    def __init__(self, **kw):
+        super(Model, self).__init__(**kw)
 
     def __getattr__(self, key):
         try:
@@ -234,3 +235,6 @@ class Model(dict, metaclass=ModelMetaclass):
         if len(rs) == 0:
             return None
         return rs[0]['_num_']
+
+
+life = 42
