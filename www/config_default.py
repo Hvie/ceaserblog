@@ -10,4 +10,3 @@ configs = {
         'secret': 'CeASeR'
     }
 }
-

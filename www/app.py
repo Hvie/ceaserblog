@@ -6,6 +6,11 @@ from jinja2 import Environment, FileSystemLoader
 import orm
 from coroweb import add_routes, add_static
 
+from coroweb import add_route
+from coroweb import get, post
+from models import User, Comment, Blog, next_id
+
+
 def init_jinja2(app, **kw):
     logging.info('init jinja2...')
     options = dict(
@@ -19,8 +24,10 @@ def init_jinja2(app, **kw):
     path = kw.get('path', None)
     if path is None:
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
-    logging.info('set jinja2 template path: %s' % path)
-    env = Environment(loader=FileSystemLoader(path), **options)
+    logging.info('set jinja2 template path: templates')
+    # logging.info('set jinja2 template path: %s' % path)
+    env = Environment(loader=FileSystemLoader('templates'), **options)
+    #env = Environment(loader=FileSystemLoader(path), **options)
     filters = kw.get('filters', None)
     if filters is not None:
         for name, f in filters.items():
@@ -106,21 +113,13 @@ def datetime_filter(t):
     return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 
 
-def index(request):
-    return web.Response(body=b'<h1>Awesome</h1>')
-
 @asyncio.coroutine
 def init(loop):
-    '''
-    app = web.Application(loop=loop)
-    app.router.add_route('GET','/',index)
-    srv = yield from loop.create_server(app.make_handler(),'127.0.0.1',9000)
-    logging.info('server started at http://127.0.0.1:9000...')
-    return srv
-    '''
+
     yield from orm.create_pool(loop=loop, host='127.0.0.1', port=3306, user='vince', password='vincent', db='ceaser')
     app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
+
     add_routes(app, 'handlers')
     add_static(app)
     srv = yield from loop.create_server(app.make_handler(), '127.0.0.1', 9000)

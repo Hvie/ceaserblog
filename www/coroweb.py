@@ -4,6 +4,8 @@ import asyncio, os, inspect, logging, functools
 
 from urllib import parse
 from aiohttp import web
+from apis import APIError
+
 
 def get(path):
     '''
@@ -14,7 +16,7 @@ def get(path):
         def wrapper(*args, **kw):
             return func(*args, **kw)
         wrapper.__method__ = 'GET'
-        wrapper.__path__ = path
+        wrapper.__route__ = path
         return wrapper
     return decorator
 
@@ -27,7 +29,7 @@ def post(path):
         def wrapper(*args, **kw):
             return func(*args, **kw)
         wrapper.__method__ = 'POST'
-        wrapper.__path__ = path
+        wrapper.__route__ = path
         return wrapper
     return decorator
 
@@ -82,7 +84,7 @@ def has_request_arg(fn):
 class RequestHandler(object):
     def __init__(self, app, fn):
         self._app = app
-        self._fn = fn
+        self._func = fn
         self._has_request_arg = has_request_arg(fn)
         self._has_var_kw_arg = has_var_kw_arg(fn)
         self._has_named_kw_args = has_named_kw_args(fn)
@@ -148,7 +150,7 @@ class RequestHandler(object):
             return dict(error=e.error, data=e.data, message=e.message)
 
 def add_static(app):
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__), 'static'))
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
     app.router.add_static('/static/', path)
     logging.info('add static %s => %s' % ('/static/', path))
 
@@ -156,12 +158,15 @@ def add_route(app, fn):
     # 调用传过来的app的add_route函数，在那之前先做检查和参数转换
     method = getattr(fn, '__method__', None)
     path = getattr(fn, '__route__', None)
+    # logging.info('method: %s, path: %s' % (method, path))
     if path is None or method is None:
         raise ValueError('@get or @post not defined in %s.' % str(fn))
     # 如果不是异步IO的，将其转为异步IO
     if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
         fn = asyncio.coroutine(fn)
-    logging.info('add route %s %s => %s(%s)') % (method, path, fn.__name__, ','.join(inspect.signature(fn).parameters.keys()))
+    logging.info('%s' % fn.__name__)
+    logging.info('add route %s %s => %s(%s)' % \
+    (method, path, fn.__name__, ','.join(inspect.signature(fn).parameters.keys())))
     app.router.add_route(method, path, RequestHandler(app, fn))
 
 def add_routes(app, module_name):
@@ -180,4 +185,3 @@ def add_routes(app, module_name):
             path = getattr(fn, '__route__', None)
             if method and path:
                 add_route(app, fn)
-

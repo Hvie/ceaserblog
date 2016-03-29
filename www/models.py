@@ -5,7 +5,9 @@ def next_id():
     # 生成uuid的id
     return '%015d%s000 % (int(time.time() * 1000), uuid.uuid4().hex'
 
+
 class User(Model):
+
     __table__ = 'users'
 
     id = StringField(primary_key=True, default=next_id, ddl='varchar(50)')
