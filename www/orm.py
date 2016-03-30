@@ -125,10 +125,9 @@ class ModelMetaclass(type):
         if not primaryKey:
             raise RuntimeError('Primary key not found.')
 
+        # 将类属性去掉，防止类属性和实例属性冲突
         for k in mappings.keys():
             attrs.pop(k)
-
-        # print(fields)
 
         escaped_fields = list(map(lambda f: '%s' % f, fields))
 
@@ -141,8 +140,9 @@ class ModelMetaclass(type):
             tableName, ','.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
 
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (
-            tableName, ', '.join(map(lambda f: '`%s`=?' %  f, fields)), primaryKey)
-        #    tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
+            tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
+        # mappings.get(f) 得到的是mappings里存储的field类型。如果filed类型有名字就返回field的名字，如果没有就返回查找的名字。
+
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
         return type.__new__(cls, name, bases, attrs)
 
@@ -153,11 +153,14 @@ class Model(dict, metaclass=ModelMetaclass):
 
     def __getattr__(self, key):
         try:
-            return self(key)
+            return self[key]
         except:
             raise AttributeError(r'"Model" object has no attribute %s' % key)
 
-    def __setattr__(self, key):
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def getValue(self, key):
         return getattr(self, key, None)
 
     def getValueOrDefault(self, key):
